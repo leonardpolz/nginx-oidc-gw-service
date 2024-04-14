@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: core-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/auth-url: "http://host.docker.internal:8080/validate"
+    nginx.ingress.kubernetes.io/auth-signin: "http://localhost:8080/login"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Authorization "Bearer $cookie_access_token";
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /test
+        pathType: Prefix
+        backend:
+          service:
+            name: test-webapp-clusterip
+            port:
+              number: 80
+          
+
+# Install Nginx Ingress:
+# helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx    
+# helm repo update
+# helm install nginx-ingress ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace --set controller.allowSnippetAnnotations: true --set controller.replicaCount: 3
+# helm upgrade nginx-ingress ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace --set controller.allowSnippetAnnotations=true --set controller.replicaCount=3

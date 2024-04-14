@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-config
+data:
+  server.properties: |
+    # Kafka configuration settings
+    broker.id=${HOSTNAME##*-}
+    listeners=PLAINTEXT://:9092
+    listener.security.protocol.map=PLAINTEXT:PLAINTEXT
+    log.dirs=/var/lib/kafka/data
+    num.network.threads=3
+    num.io.threads=8
+    socket.send.buffer.bytes=102400
+    socket.receive.buffer.bytes=102400
+    socket.request.max.bytes=104857600
+    offsets.topic.replication.factor=3
+    transaction.state.log.replication.factor=3
+    transaction.state.log.min.isr=2
+    log.retention.hours=168
+    log.segment.bytes=1073741824
+    log.retention.check.interval.ms=300000
+    zookeeper.connect=zookeeper-service:2181
+    zookeeper.connection.timeout.ms=6000
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+spec:
+  serviceName: "kafka-headless"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+      - name: kafka
+        image: bitnami/kafka:latest
+        ports:
+        - name: kafka
+          containerPort: 9092
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/kafka/data
+        - name: config
+          mountPath: /opt/bitnami/kafka/config/server.properties
+          subPath: server.properties
+        env:
+        - name: KAFKA_CFG_ZOOKEEPER_CONNECT
+          value: "zookeeper-service:2181"
+        - name: ALLOW_PLAINTEXT_LISTENER
+          value: "yes"
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+spec:
+  ports:
+  - port: 9092
+  clusterIP: None
+  selector:
+    app: kafka
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 9092
+    targetPort: 9092
+  selector:
+    app: kafka
+---
