@@ -39,11 +39,11 @@ pub async fn handle(
             CsrfToken::new_random,
             Nonce::new_random,
         )
-        .add_scope(Scope::new(".default".to_string()))
+        .add_scope(Scope::new("email".to_string()))
         .set_pkce_challenge(pkce_challenge)
         .url();
 
-    let oidc_state = OidcState::new(nginx_redirect_uri.to_string(), pkce_verifier, nonce);
+    let oidc_state = OidcState::new(nginx_redirect_uri.to_string(), pkce_verifier, nonce.clone());
 
     oidc_state_map
         .lock()

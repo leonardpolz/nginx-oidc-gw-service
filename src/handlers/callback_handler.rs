@@ -6,7 +6,7 @@ use crate::shared::settings::Settings;
 use actix_web::{HttpRequest, HttpResponse, Responder};
 use anyhow::anyhow;
 use base64::prelude::*;
-use log::{info, warn};
+use log::{error, info, warn};
 use openidconnect::{
     core::CoreClient, reqwest::async_http_client, AuthorizationCode, TokenResponse,
 };
@@ -22,52 +22,46 @@ pub async fn handle(
     oidc_state_map: &Arc<Mutex<HashMap<String, OidcState>>>,
     oidc_client: &CoreClient,
 ) -> impl Responder {
-    let state = request
-        .query_string()
-        .split('&')
-        .find_map(|param| {
-            let mut parts = param.split('=');
-            if parts.next()? == "state" {
-                parts.next()
-            } else {
-                None
-            }
-        })
-        .unwrap_or("/")
-        .to_string();
-
-    let oidc_code = request
-        .query_string()
-        .split('&')
-        .find_map(|param| {
-            let mut parts = param.split('=');
-            if parts.next()? == "code" {
-                parts.next()
-            } else {
-                None
-            }
-        })
-        .unwrap_or("/");
-
-    let oidc_state = oidc_state_map.lock().unwrap().remove(&state).unwrap();
+    let state = extract_query_param(&request, "state");
+    let oidc_code = extract_query_param(&request, "code");
+    let mut oidc_state = oidc_state_map.lock().unwrap().remove(&state).unwrap();
 
     let nginx_redirect_uri = oidc_state.redirect_uri().clone();
 
-    let token_response = oidc_client
-        .exchange_code(AuthorizationCode::new(oidc_code.to_string()))
-        .set_pkce_verifier(oidc_state.take_pkce_verifier())
-        .request_async(async_http_client)
-        .await
-        .expect("Failed to exchange code for token");
+    if let Some(pkce_verifier) = oidc_state.take_pkce_verifier() {
+        let token_response = oidc_client
+            .exchange_code(AuthorizationCode::new(oidc_code.to_string()))
+            .set_pkce_verifier(pkce_verifier)
+            .request_async(async_http_client)
+            .await
+            .expect("Failed to exchange code for token");
 
-    let id_token = token_response
-        .id_token()
-        .ok_or_else(|| anyhow!("Server did not return an ID token"))
-        .expect("Failed to get ID token");
+        let id_token = token_response
+            .id_token()
+            .ok_or_else(|| anyhow!("Server did not return an ID token"))
+            .expect("Failed to get ID token");
 
-    info!("ID token: {:?}", id_token);
+        if let Some(nonce) = oidc_state.take_nonce() {
+            let claims = id_token
+                .claims(&oidc_client.id_token_verifier(), &nonce)
+                .expect("Failed to verify ID token");
 
-    // let claims = id_token.claims(&oidc_client.id_token_verifier(), move || oicd_state.toke_nonce().clone())
+            println!(
+                "User {} with e-mail address {} has authenticated successfully",
+                claims.subject().as_str(),
+                claims
+                    .email()
+                    .map(|email| email.as_str())
+                    .unwrap_or("<not provided>"),
+            );
+        } else {
+            error!("Nonce not found");
+            return HttpResponse::InternalServerError().finish();
+        }
+    } else {
+        error!("PKCE Verifier not found");
+        return HttpResponse::InternalServerError().finish();
+    }
 
     let test_user = User::new(
         Uuid::new_v4(),
@@ -85,4 +79,19 @@ pub async fn handle(
         .append_header(("Set-Cookie", cookie_value))
         .append_header(("Location", nginx_redirect_uri))
         .finish()
+}
+
+fn extract_query_param(request: &HttpRequest, param_name: &str) -> String {
+    request
+        .query_string()
+        .split('&')
+        .find_map(|param| {
+            let mut parts = param.split('=');
+            if parts.next()? == param_name {
+                parts.next().map(|v| v.to_string())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| "/".to_string())
 }
