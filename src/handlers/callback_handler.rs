@@ -28,40 +28,46 @@ pub async fn handle(
 
     let nginx_redirect_uri = oidc_state.redirect_uri().clone();
 
-    if let Some(pkce_verifier) = oidc_state.take_pkce_verifier() {
-        let token_response = oidc_client
-            .exchange_code(AuthorizationCode::new(oidc_code.to_string()))
-            .set_pkce_verifier(pkce_verifier)
-            .request_async(async_http_client)
-            .await
-            .expect("Failed to exchange code for token");
+    let pkce_verifier = match oidc_state.take_pkce_verifier() {
+        Some(pkce_verifier) => pkce_verifier,
+        None => {
+            error!("PKCE Verifier not found");
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
 
-        let id_token = token_response
-            .id_token()
-            .ok_or_else(|| anyhow!("Server did not return an ID token"))
-            .expect("Failed to get ID token");
+    let token_response = oidc_client
+        .exchange_code(AuthorizationCode::new(oidc_code.to_string()))
+        .set_pkce_verifier(pkce_verifier)
+        .request_async(async_http_client)
+        .await
+        .expect("Failed to exchange code for token");
 
-        if let Some(nonce) = oidc_state.take_nonce() {
-            let claims = id_token
-                .claims(&oidc_client.id_token_verifier(), &nonce)
-                .expect("Failed to verify ID token");
+    let id_token = token_response
+        .id_token()
+        .ok_or_else(|| anyhow!("Server did not return an ID token"))
+        .expect("Failed to get ID token");
 
-            println!(
-                "User {} with e-mail address {} has authenticated successfully",
-                claims.subject().as_str(),
-                claims
-                    .email()
-                    .map(|email| email.as_str())
-                    .unwrap_or("<not provided>"),
-            );
-        } else {
+    let nonce = match oidc_state.take_nonce() {
+        Some(nonce) => nonce,
+        None => {
             error!("Nonce not found");
             return HttpResponse::InternalServerError().finish();
         }
-    } else {
-        error!("PKCE Verifier not found");
-        return HttpResponse::InternalServerError().finish();
-    }
+    };
+
+    let claims = id_token
+        .claims(&oidc_client.id_token_verifier(), &nonce)
+        .expect("Failed to verify ID token");
+
+    println!(
+        "User {} with e-mail address {} has authenticated successfully",
+        claims.subject().as_str(),
+        claims
+            .email()
+            .map(|email| email.as_str())
+            .unwrap_or("<not provided>")
+    );
 
     let test_user = User::new(
         Uuid::new_v4(),
