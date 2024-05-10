@@ -20,7 +20,20 @@ pub async fn handle(
 ) -> impl Responder {
     let state = extract_query_param(&request, "state");
     let oidc_code = extract_query_param(&request, "code");
-    let mut oidc_state = oidc_state_map.lock().unwrap().remove(&state).unwrap();
+
+    if !oidc_state_map
+        .try_lock()
+        .expect("Failed to lock OIDC state map")
+        .contains_key(&state)
+    {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    let mut oidc_state = oidc_state_map
+        .try_lock()
+        .expect("Failed to lock OIDC state map")
+        .remove(&state)
+        .expect("State not found");
 
     let nginx_redirect_uri = oidc_state.redirect_uri().clone();
 
@@ -52,7 +65,7 @@ pub async fn handle(
         claims
             .email()
             .map(|email| email.as_str())
-            .unwrap_or("<not provided>")
+            .expect("Failed to get e-mail address")
     );
 
     let user_result = db_context

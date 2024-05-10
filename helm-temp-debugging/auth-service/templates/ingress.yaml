@@ -6,8 +6,8 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /$1
     nginx.ingress.kubernetes.io/auth-url: "http://host.docker.internal:8088/validate"
     nginx.ingress.kubernetes.io/auth-signin: "http://localhost:8088/login"
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header Authorization "Bearer $cookie_access_token";
+    # nginx.ingress.kubernetes.io/configuration-snippet: |
+    #   proxy_set_header Authorization "Bearer $cookie_access_token";
 spec:
   ingressClassName: nginx
   rules:

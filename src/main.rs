@@ -1,5 +1,6 @@
 use crate::controllers::auth_controller::{callback, login, validate};
 use crate::shared::{oidc_state::OidcState, settings::Settings};
+use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use dotenv::dotenv;
 use getset::Getters;
@@ -44,6 +45,7 @@ async fn main() -> std::io::Result<()> {
     let app = move || {
         App::new()
             .app_data(data.clone())
+            .wrap(Logger::default())
             .route("/validate", web::get().to(validate))
             .route("/login", web::get().to(login))
             .route("/callback", web::get().to(callback))
