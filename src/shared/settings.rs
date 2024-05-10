@@ -20,9 +20,20 @@ pub struct EntraSettings {
 
 #[derive(Getters, Clone)]
 #[getset(get = "pub")]
+pub struct DbSettings {
+    connection_string: String,
+    username: String,
+    password: String,
+    namespace: String,
+    database: String,
+}
+
+#[derive(Getters, Clone)]
+#[getset(get = "pub")]
 pub struct Settings {
     jwt: JwtSettings,
     entra: EntraSettings,
+    db: DbSettings,
 }
 
 impl Settings {
@@ -60,6 +71,20 @@ impl Settings {
             redirect_uri,
         };
 
-        Ok(Settings { jwt, entra })
+        let connection_string = cfg.get::<String>("db.connection_string")?;
+        let username = cfg.get::<String>("db.username")?;
+        let password = Self::get_env_var("DB_PASSWORD")?;
+        let namespace = cfg.get::<String>("db.namespace")?;
+        let database = cfg.get::<String>("db.database")?;
+
+        let db = DbSettings {
+            connection_string,
+            username,
+            password,
+            namespace,
+            database,
+        };
+
+        Ok(Settings { jwt, entra, db })
     }
 }

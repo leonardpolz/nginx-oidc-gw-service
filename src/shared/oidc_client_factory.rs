@@ -5,7 +5,6 @@ use openidconnect::{
     reqwest::async_http_client,
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
-use std::error::Error;
 
 pub async fn init_oidc_client(entra_settings: &EntraSettings) -> CoreClient {
     debug!("Initializing OIDC client...");

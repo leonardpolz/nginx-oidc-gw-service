@@ -1,19 +1,16 @@
 use crate::controllers::auth_controller::{callback, login, validate};
-use crate::shared::{
-    oidc_client_factory::init_oidc_client, oidc_state::OidcState, settings::Settings,
-};
+use crate::shared::{oidc_state::OidcState, settings::Settings};
 use actix_web::{web, App, HttpServer};
 use dotenv::dotenv;
 use getset::Getters;
 use log::{debug, info};
-use serde_json::to_string;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 mod controllers;
+mod data_models;
 mod handlers;
-mod models;
 mod shared;
 
 #[derive(Getters, Clone)]

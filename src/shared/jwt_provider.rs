@@ -1,5 +1,5 @@
-use crate::models::role::Role;
-use crate::models::user::User;
+use crate::data_models::role::Role;
+use crate::data_models::user::User;
 use crate::shared::settings::JwtSettings;
 use jsonwebtoken::{
     decode, encode, errors::ErrorKind, DecodingKey, EncodingKey, Header, TokenData, Validation,
@@ -31,7 +31,7 @@ pub fn generate_jwt(user: User, jwt_settings: &JwtSettings) -> String {
         exp: now + 3600,
         iss: "test".to_string(),
         aud: "test".to_string(),
-        oid: user.id().clone(),
+        oid: user.oid().clone(),
         email: user.email().to_string(),
         name: user.name().to_string(),
         roles: user.roles().to_vec(),

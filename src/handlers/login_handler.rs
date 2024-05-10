@@ -1,12 +1,10 @@
 use crate::shared::oidc_state::OidcState;
 use actix_web::{HttpRequest, HttpResponse, Responder};
-use base64::prelude::*;
 use log::{debug, info};
 use openidconnect::{
     core::{CoreAuthenticationFlow, CoreClient},
     CsrfToken, Nonce, PkceCodeChallenge, Scope,
 };
-use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
