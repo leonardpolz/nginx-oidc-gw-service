@@ -5,6 +5,12 @@ use std::env::var;
 
 #[derive(Getters, Clone)]
 #[getset(get = "pub")]
+pub struct AppSettings {
+    bind: String,
+}
+
+#[derive(Getters, Clone)]
+#[getset(get = "pub")]
 pub struct JwtSettings {
     secret: String,
 }
@@ -30,10 +36,20 @@ pub struct DbSettings {
 
 #[derive(Getters, Clone)]
 #[getset(get = "pub")]
+pub struct KafkaSettings {
+    brokers: Vec<String>,
+    topic_name: String,
+    group_name: String,
+}
+
+#[derive(Getters, Clone)]
+#[getset(get = "pub")]
 pub struct Settings {
+    app: AppSettings,
     jwt: JwtSettings,
     entra: EntraSettings,
     db: DbSettings,
+    kafka: KafkaSettings,
 }
 
 impl Settings {
@@ -55,8 +71,10 @@ impl Settings {
     }
 
     fn from_config(cfg: Config) -> Result<Self, ConfigError> {
-        let jwt_secret = Self::get_env_var("JWT_SECRET")?;
+        let bind = cfg.get::<String>("app.bind")?;
+        let app = AppSettings { bind };
 
+        let jwt_secret = Self::get_env_var("JWT_SECRET")?;
         let jwt = JwtSettings { secret: jwt_secret };
 
         let tenant_id = cfg.get::<String>("entra.tenant_id")?;
@@ -85,6 +103,22 @@ impl Settings {
             database,
         };
 
-        Ok(Settings { jwt, entra, db })
+        let brokers = cfg.get::<Vec<String>>("kafka.brokers")?;
+        let topic_name = cfg.get::<String>("kafka.topic_name")?;
+        let group_name = cfg.get::<String>("kafka.group_name")?;
+
+        let kafka = KafkaSettings {
+            brokers,
+            topic_name,
+            group_name,
+        };
+
+        Ok(Settings {
+            app,
+            jwt,
+            entra,
+            db,
+            kafka,
+        })
     }
 }

@@ -1,3 +1,4 @@
+# ConfigMap for ZooKeeper
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -5,22 +6,24 @@ metadata:
 data:
   zoo.cfg: |
     tickTime=2000
+    initLimit=10
+    syncLimit=5
     dataDir=/var/lib/zookeeper/data
-    dataLogDir=/var/lib/zookeeper/log
     clientPort=2181
-    initLimit=5
-    syncLimit=2
-    maxClientCnxns=60
-    server.1=zoo-0.zookeeper-headless.default.svc.cluster.local:2888:3888
-    server.2=zoo-1.zookeeper-headless.default.svc.cluster.local:2888:3888
-    server.3=zoo-2.zookeeper-headless.default.svc.cluster.local:2888:3888
+    autopurge.snapRetainCount=3
+    autopurge.purgeInterval=1
+    server.1=zookeeper-0.zookeeper-headless.default.svc.cluster.local:2888:3888
+    server.2=zookeeper-1.zookeeper-headless.default.svc.cluster.local:2888:3888
+    server.3=zookeeper-2.zookeeper-headless.default.svc.cluster.local:2888:3888
+---
 
+# StatefulSet for ZooKeeper
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: zookeeper
 spec:
-  serviceName: zookeeper-headless
+  serviceName: "zookeeper-headless"
   replicas: 3
   selector:
     matchLabels:
@@ -30,26 +33,48 @@ spec:
       labels:
         app: zookeeper
     spec:
-      containers:
-      - name: zookeeper
-        image: zookeeper:latest
-        ports:
-        - containerPort: 2181
+      initContainers:
+      - name: init-myid
+        image: busybox:1.28
+        command:
+        - sh
+        - -c
+        - "echo $(expr $(echo ${POD_NAME} | grep -o '[0-9]*') + 1) > /var/lib/zookeeper/data/myid"
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         volumeMounts:
         - name: data
           mountPath: /var/lib/zookeeper/data
-        - name: log
-          mountPath: /var/lib/zookeeper/log
-        #- name: config
-        #  mountPath: /conf
-        #  readOnly: true
-    #   volumes:
-    #   - name: config
-    #     configMap:
-    #       name: zookeeper-config
-    #       items:
-    #       - key: zoo.cfg
-    #         path: zoo.cfg
+      containers:
+      - name: zookeeper
+        image: bitnami/zookeeper:latest
+        ports:
+        - name: client
+          containerPort: 2181
+        - name: leader-election
+          containerPort: 2888
+        - name: follower
+          containerPort: 3888
+        env:
+        - name: ZOO_MY_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ALLOW_ANONYMOUS_LOGIN
+          value: "yes"
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/zookeeper/data
+        - name: config
+          mountPath: /opt/bitnami/zookeeper/conf/zoo.cfg
+          subPath: zoo.cfg
+      volumes:
+      - name: config
+        configMap:
+          name: zookeeper-config
   volumeClaimTemplates:
   - metadata:
       name: data
@@ -57,28 +82,28 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
-          storage: 1Gi
-  - metadata:
-      name: log
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
+          storage: 5Gi
 ---
 
+# Headless Service for ZooKeeper
 apiVersion: v1
 kind: Service
 metadata:
   name: zookeeper-headless
 spec:
   ports:
-  - port: 2181
+  - name: client
+    port: 2181
+  - name: leader-election
+    port: 2888
+  - name: follower
+    port: 3888
   clusterIP: None
   selector:
     app: zookeeper
 ---
 
+# ClusterIP Service for ZooKeeper
 apiVersion: v1
 kind: Service
 metadata:
@@ -86,8 +111,8 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-  - port: 2181
+  - name: client
+    port: 2181
     targetPort: 2181
   selector:
     app: zookeeper
----

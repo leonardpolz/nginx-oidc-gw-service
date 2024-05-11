@@ -5,7 +5,6 @@ metadata:
 data:
   server.properties: |
     # Kafka configuration settings
-    broker.id=${HOSTNAME##*-}
     listeners=PLAINTEXT://:9092
     listener.security.protocol.map=PLAINTEXT:PLAINTEXT
     log.dirs=/var/lib/kafka/data
@@ -20,7 +19,7 @@ data:
     log.retention.hours=168
     log.segment.bytes=1073741824
     log.retention.check.interval.ms=300000
-    zookeeper.connect=zookeeper-service:2181
+    zookeeper.connect=zookeeper:2181
     zookeeper.connection.timeout.ms=6000
 ---
 
@@ -53,9 +52,17 @@ spec:
           subPath: server.properties
         env:
         - name: KAFKA_CFG_ZOOKEEPER_CONNECT
-          value: "zookeeper-service:2181"
+          value: "zookeeper:2181"
         - name: ALLOW_PLAINTEXT_LISTENER
           value: "yes"
+        - name: KAFKA_CFG_BROKER_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+      volumes:
+      - name: config
+        configMap:
+          name: kafka-config
   volumeClaimTemplates:
   - metadata:
       name: data
@@ -83,10 +90,9 @@ kind: Service
 metadata:
   name: kafka
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   ports:
   - port: 9092
     targetPort: 9092
   selector:
     app: kafka
----

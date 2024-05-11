@@ -28,4 +28,31 @@ impl DbContext {
 
         users.into_iter().next()
     }
+
+    pub async fn patch_user(self, user: User) -> Option<User> {
+        info!("Patching user: {:?}", user);
+
+        let sql_query = format!(
+            "UPDATE users SET name = {}, email = {}, roles = {}, oid = {} WHERE id = {};",
+            user.name(),
+            user.email(),
+            user.oid(),
+            serde_json::to_string(&user.roles()).unwrap(),
+            user.sub()
+        );
+
+        let mut users_result: Response = self
+            .client
+            .query(sql_query)
+            .await
+            .expect("Failed to patch user");
+
+        let users: Vec<User> = users_result
+            .take::<Vec<User>>(0)
+            .expect("Failed to get user");
+
+        info!("Patched user: {:?}", users);
+
+        users.into_iter().next()
+    }
 }

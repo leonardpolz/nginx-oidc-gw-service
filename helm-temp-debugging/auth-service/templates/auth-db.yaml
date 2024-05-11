@@ -44,7 +44,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: authdb-service
+  name: authdb
 spec:
   ports:
   - port: 8000

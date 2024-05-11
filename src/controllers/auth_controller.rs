@@ -32,6 +32,8 @@ pub async fn callback(app_state: web::Data<AppState>, req: HttpRequest) -> impl 
 
     let oidc_client = init_oidc_client(app_state.settings().entra()).await;
     let db_context = init_db_context(app_state.settings().db()).await;
+
+
     callback_handler::handle(
         req,
         app_state.settings(),
