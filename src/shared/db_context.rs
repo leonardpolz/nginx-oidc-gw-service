@@ -1,5 +1,5 @@
 use log::info;
-use surrealdb::{engine::remote::ws::Client, Response, Surreal};
+use surrealdb::{engine::remote::ws::Client, Error, Surreal};
 
 use crate::data_models::user::User;
 
@@ -12,47 +12,42 @@ impl DbContext {
         Self { client }
     }
 
-    pub async fn fetch_user_by_id(self, id: String) -> Option<User> {
+    pub async fn fetch_user_by_id(&self, id: String) -> Result<Option<User>, Error> {
         info!("Fetching user with ID: {}", id);
-        let mut users_result: Response = self
-            .client
-            .query(format!("SELECT * FROM user:{};", id))
-            .await
-            .expect("Failed to query user roles");
 
-        let users: Vec<User> = users_result
-            .take::<Vec<User>>(0)
-            .expect("Failed to get user");
+        let query_result: Result<Option<User>, Error> = self.client.select(("user", id)).await;
 
-        info!("Fetched user: {:?}", users);
+        let user = match query_result {
+            Ok(result) => result,
+            Err(err) => {
+                log::error!("Failed to query user roles: {:?}", err);
+                return Err(err);
+            }
+        };
 
-        users.into_iter().next()
+        Ok(user)
     }
 
-    pub async fn patch_user(self, user: User) -> Option<User> {
+    pub async fn patch_user(&self, user: User) -> Result<String, Error> {
         info!("Patching user: {:?}", user);
 
-        let sql_query = format!(
-            "UPDATE users SET name = {}, email = {}, roles = {}, oid = {} WHERE id = {};",
-            user.name(),
-            user.email(),
-            user.oid(),
-            serde_json::to_string(&user.roles()).unwrap(),
-            user.sub()
-        );
+        let existing_user = self.fetch_user_by_id(user.oid().to_string()).await?;
 
-        let mut users_result: Response = self
-            .client
-            .query(sql_query)
-            .await
-            .expect("Failed to patch user");
+        if let Some(existing_user) = existing_user {
+            info!("User exists, updating user");
+            let _: Result<Option<Vec<User>>, Error> = self
+                .client
+                .update(("user", existing_user.oid()))
+                .content(user)
+                .await;
 
-        let users: Vec<User> = users_result
-            .take::<Vec<User>>(0)
-            .expect("Failed to get user");
+            return Ok("User updated successfully".to_string());
+        }
 
-        info!("Patched user: {:?}", users);
+        info!("User does not exist, creating user");
+        let _: Result<Option<Vec<User>>, Error> =
+            self.client.create(("user", user.oid())).content(user).await;
 
-        users.into_iter().next()
+        Ok("Created new User".to_string())
     }
 }

@@ -22,3 +22,5 @@ urldecode = "0.1.1"
 anyhow = "1.0.81"
 surrealdb = "1.4.2"
 kafka = "0.10.0"
+tokio = { version = "1.37.0", features = ["full"] }
+tokio-util = "0.7.11"

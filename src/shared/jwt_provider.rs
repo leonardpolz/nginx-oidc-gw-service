@@ -7,6 +7,7 @@ use jsonwebtoken::{
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
@@ -31,7 +32,7 @@ pub fn generate_jwt(user: User, jwt_settings: &JwtSettings) -> String {
         exp: now + 3600,
         iss: "test".to_string(),
         aud: "test".to_string(),
-        oid: user.oid().clone(),
+        oid: Uuid::from_str(user.oid()).expect("Failed to parse UUID"),
         email: user.email().to_string(),
         name: user.name().to_string(),
         roles: user.roles().to_vec(),

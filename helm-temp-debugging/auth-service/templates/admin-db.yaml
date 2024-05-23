@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: admin-db-init-script
+data:
+  init-db.sql: |
+    CREATE DATABASE IF NOT EXISTS admindb;
+    CREATE USER IF NOT EXISTS 'admin-service'@'%' IDENTIFIED BY 'geheimgeheim3450984343958';
+    GRANT ALL PRIVILEGES ON admindb.* TO 'admin-service'@'%';
+    FLUSH PRIVILEGES;
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admindb-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: admindb
+  template:
+    metadata:
+      labels:
+        app: admindb
+    spec:
+      containers:
+      - name: mariadb
+        image: mariadb:latest
+        volumeMounts:
+        - name: db-init-script-volume
+          mountPath: /docker-entrypoint-initdb.d
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "geheim342509854390528234geheim"
+        ports:
+        - containerPort: 3306
+      volumes:
+      - name: db-init-script-volume
+        configMap:
+          name: admin-db-init-script
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: admindb
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: admindb
+  type: ClusterIP
+---

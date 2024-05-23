@@ -70,12 +70,16 @@ pub async fn handle(
 
     let user_result = db_context
         .fetch_user_by_id(claims.subject().as_str().to_string())
-        .await;
+        .await
+        .expect("Failed to fetch user");
 
     info!("User result: {:?}", user_result);
 
     match user_result {
-        None => HttpResponse::Unauthorized().finish(),
+        None => {
+            info!("User not found in database");
+            HttpResponse::Unauthorized().finish()
+        }
 
         Some(user) => {
             let token = generate_jwt(user, settings.jwt());
