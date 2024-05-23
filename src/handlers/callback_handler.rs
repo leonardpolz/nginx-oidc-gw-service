@@ -8,8 +8,15 @@ use log::info;
 use openidconnect::{
     core::CoreClient, reqwest::async_http_client, AuthorizationCode, TokenResponse,
 };
+use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+use openidconnect::{
+    AdditionalClaims, EmptyAdditionalClaims, EmptyExtraTokenFields, IdToken, IdTokenClaims,
+    IdTokenFields, StandardTokenResponse,
+};
+use serde::Deserialize;
 
 pub async fn handle(
     request: HttpRequest,
@@ -59,19 +66,18 @@ pub async fn handle(
         .claims(&oidc_client.id_token_verifier(), &nonce)
         .expect("Failed to verify ID token");
 
+    let email = claims
+        .email()
+        .map(|email| email)
+        .expect("Failed to get e-mail address");
+
     println!(
         "User {} with e-mail address {} has authenticated successfully",
         claims.subject().as_str(),
-        claims
-            .email()
-            .map(|email| email.as_str())
-            .expect("Failed to get e-mail address")
+        email.as_str(),
     );
 
-    let user_result = db_context
-        .fetch_user_by_id(claims.subject().as_str().to_string())
-        .await
-        .expect("Failed to fetch user");
+    let user_result = db_context.fetch_user_by_email(email.to_string()).await;
 
     info!("User result: {:?}", user_result);
 
@@ -109,3 +115,10 @@ fn extract_query_param(request: &HttpRequest, param_name: &str) -> String {
         })
         .unwrap_or_else(|| "/".to_string())
 }
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct MyAdditionalClaims {
+    pub oid: String,
+}
+
+impl AdditionalClaims for MyAdditionalClaims {}

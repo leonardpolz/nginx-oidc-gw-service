@@ -3,8 +3,9 @@ use actix_web::{HttpRequest, HttpResponse, Responder};
 use log::info;
 use openidconnect::{
     core::{CoreAuthenticationFlow, CoreClient},
-    CsrfToken, Nonce, PkceCodeChallenge, Scope,
+    AdditionalClaims, CsrfToken, Nonce, PkceCodeChallenge, Scope,
 };
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;

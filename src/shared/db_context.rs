@@ -1,5 +1,7 @@
+use std::fmt::format;
+
 use log::info;
-use surrealdb::{engine::remote::ws::Client, Error, Surreal};
+use surrealdb::{engine::remote::ws::Client, Error, Response, Surreal};
 
 use crate::data_models::user::User;
 
@@ -26,6 +28,25 @@ impl DbContext {
         };
 
         Ok(user)
+    }
+
+    // For some reason, I am not able to figure out how to extrace the oid claim from the ID token
+    // This helper function is used to fetch the user by email instead of oid
+    pub async fn fetch_user_by_email(self, email: String) -> Option<User> {
+        info!("Fetching user with email: {}", email);
+        let mut users_result: Response = self
+            .client
+            .query(format!("SELECT * FROM user WHERE email == '{}';", email))
+            .await
+            .expect("Failed to query user roles");
+
+        let users: Vec<User> = users_result
+            .take::<Vec<User>>(0)
+            .expect("Failed to get user");
+
+        info!("Fetched user: {:?}", users);
+
+        users.into_iter().next()
     }
 
     pub async fn patch_user(&self, user: User) -> Result<String, Error> {
