@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use log::info;
 use surrealdb::{engine::remote::ws::Client, Error, Response, Surreal};
 
@@ -47,6 +45,22 @@ impl DbContext {
         info!("Fetched user: {:?}", users);
 
         users.into_iter().next()
+    }
+
+    pub async fn delete_user_by_id(&self, id: String) -> Result<Option<User>, Error> {
+        info!("Fetching user with ID: {}", id);
+
+        let query_result: Result<Option<User>, Error> = self.client.delete(("user", id)).await;
+
+        let user = match query_result {
+            Ok(result) => result,
+            Err(err) => {
+                log::error!("Failed to query user roles: {:?}", err);
+                return Err(err);
+            }
+        };
+
+        Ok(user)
     }
 
     pub async fn patch_user(&self, user: User) -> Result<String, Error> {

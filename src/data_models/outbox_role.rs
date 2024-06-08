@@ -3,12 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Getters)]
 #[getset(get = "pub")]
-pub struct Role {
+pub struct OutboxRole {
+    id: String,
     name: String,
-}
-
-impl Role {
-    pub fn new(name: String) -> Self {
-        Self { name }
-    }
 }

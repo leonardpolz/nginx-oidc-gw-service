@@ -3,9 +3,8 @@ use log::debug;
 use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
     reqwest::async_http_client,
-    AdditionalClaims, ClientId, ClientSecret, IssuerUrl, ProviderMetadata, RedirectUrl,
+    ClientId, ClientSecret, IssuerUrl, RedirectUrl,
 };
-use serde::{Deserialize, Serialize};
 
 pub async fn init_oidc_client(entra_settings: &EntraSettings) -> CoreClient {
     debug!("Initializing OIDC client...");

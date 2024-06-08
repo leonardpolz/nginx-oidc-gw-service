@@ -12,10 +12,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use openidconnect::{
-    AdditionalClaims, EmptyAdditionalClaims, EmptyExtraTokenFields, IdToken, IdTokenClaims,
-    IdTokenFields, StandardTokenResponse,
-};
+use openidconnect::AdditionalClaims;
 use serde::Deserialize;
 
 pub async fn handle(

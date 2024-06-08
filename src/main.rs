@@ -1,5 +1,7 @@
 use crate::controllers::auth_controller::{callback, login, validate};
+use crate::data_models::outbox_action::OutboxAction;
 use crate::data_models::outbox_user::OutboxUser;
+use crate::data_models::role::Role;
 use crate::data_models::user::User;
 use crate::shared::db_context_factory::init_db_context;
 use crate::shared::{oidc_state::OidcState, settings::Settings};
@@ -90,8 +92,8 @@ async fn db_sync_task(
     while !cancelation_token.is_cancelled() {
         for ms in consumer.poll().expect("Failed to poll").iter() {
             for m in ms.messages() {
-                info!("Received message: {:?}", m);
                 let db_context = init_db_context(&db_settings).await;
+
                 let outbox_user: OutboxUser = match serde_json::from_slice(m.value) {
                     Ok(user) => user,
                     Err(e) => {
@@ -102,18 +104,36 @@ async fn db_sync_task(
 
                 info!("Deserialized user: {:?}", outbox_user);
 
-                let user = User::new(
-                    outbox_user.id().to_owned().to_string(),
-                    outbox_user.email().to_owned(),
-                    outbox_user.roles().to_owned(),
-                );
+                if *outbox_user.action() == OutboxAction::DELETE {
+                    db_context
+                        .delete_user_by_id(outbox_user.id().to_string().to_owned())
+                        .await
+                        .expect("Failed to delete user");
 
-                db_context
-                    .patch_user(user)
-                    .await
-                    .expect("Failed to patch user");
+                    info!("User deleted successfully");
+                    continue;
+                }
 
-                info!("User patched successfully");
+                if *outbox_user.action() == OutboxAction::CREATE {
+                    let roles: Vec<Role> = outbox_user
+                        .roles()
+                        .iter()
+                        .map(|outbox_role| Role::new(outbox_role.name().clone()))
+                        .collect();
+
+                    let user = User::new(
+                        outbox_user.id().to_owned().to_string(),
+                        outbox_user.email().to_owned(),
+                        roles,
+                    );
+
+                    db_context
+                        .patch_user(user)
+                        .await
+                        .expect("Failed to patch user");
+
+                    info!("User patched successfully");
+                }
             }
             let _ = consumer.consume_messageset(ms);
         }
