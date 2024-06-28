@@ -2,6 +2,7 @@ use crate::shared::db_context::DbContext;
 use crate::shared::jwt_provider::generate_jwt;
 use crate::shared::oidc_state::OidcState;
 use crate::shared::settings::Settings;
+use actix_web::cookie::Cookie;
 use actix_web::{HttpRequest, HttpResponse, Responder};
 use anyhow::anyhow;
 use log::info;
@@ -87,11 +88,15 @@ pub async fn handle(
         Some(user) => {
             let token = generate_jwt(user, settings.jwt());
 
-            let cookie_value = format!("auth_token={}; HttpOnly; Path=/", token);
+            let cookie = Cookie::build("auth_token", token)
+                .path("/")
+                .secure(false) // Temporarily set to false for testing
+                .http_only(false) // Temporarily set to false for testing
+                .finish();
 
             info!("Redirecting to {}", nginx_redirect_uri);
             HttpResponse::Found()
-                .append_header(("Set-Cookie", cookie_value))
+                .cookie(cookie)
                 .append_header(("Location", nginx_redirect_uri))
                 .finish()
         }
