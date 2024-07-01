@@ -69,7 +69,7 @@ pub async fn handle(
         .map(|email| email)
         .expect("Failed to get e-mail address");
 
-    println!(
+    info!(
         "User {} with e-mail address {} has authenticated successfully",
         claims.subject().as_str(),
         email.as_str(),
